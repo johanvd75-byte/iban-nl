@@ -16,7 +16,7 @@ on:
           - standard
           - deep
       max_budget_usd:
-        description: Hard LLM cost ceiling in USD
+        description: LLM budget in USD; an in-flight request may finish above it
         required: true
         default: "3"
         type: choice
@@ -67,7 +67,7 @@ jobs:
 
       - name: Check out source without persisted credentials
         if: steps.preflight.outputs.enabled == 'true'
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           persist-credentials: false
