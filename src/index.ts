@@ -103,12 +103,21 @@ export const NL_BANK_CODES: Readonly<Record<string, string>> = Object.freeze({
 });
 
 const NL_IBAN_LENGTH = 18;
+const MAX_IBAN_INPUT_LENGTH = 64;
+const BANK_CODE_LENGTH = 4;
 
 /**
- * Normalize: strip whitespace, uppercase.
+ * Normalize: reject oversized input, strip whitespace, uppercase.
  */
 export function normalize(input: string): string {
-  return String(input || '').replace(/\s+/g, '').toUpperCase();
+  if (typeof input !== 'string') {
+    throw new IbanError('IBAN input must be a string', 'TYPE');
+  }
+  if (input.length > MAX_IBAN_INPUT_LENGTH) {
+    throw new IbanError('IBAN input is too long', 'INPUT_TOO_LONG');
+  }
+
+  return input.replace(/\s+/g, '').toUpperCase();
 }
 
 /**
@@ -179,6 +188,10 @@ export function format(input: string): string {
  * Look up a bank name by 4-letter bank code.
  */
 export function bankNameFor(bankCode: string): string | null {
+  if (typeof bankCode !== 'string' || bankCode.length !== BANK_CODE_LENGTH) {
+    return null;
+  }
+
   return NL_BANK_CODES[bankCode.toUpperCase()] ?? null;
 }
 
