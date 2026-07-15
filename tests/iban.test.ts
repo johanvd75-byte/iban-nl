@@ -32,6 +32,10 @@ describe('@fynqo/iban-nl', () => {
     it('rejects non-alphabetic bank code', () => {
       expect(isValid('NL911234041716430A')).toBe(false);
     });
+
+    it('rejects oversized input before normalization', () => {
+      expect(isValid(' '.repeat(47) + VALID)).toBe(false);
+    });
   });
 
   describe('parse', () => {
@@ -56,6 +60,18 @@ describe('@fynqo/iban-nl', () => {
     it('throws IbanError on invalid input', () => {
       expect(() => parse('garbage')).toThrow(IbanError);
     });
+
+    it('rejects oversized input with a stable error code', () => {
+      try {
+        parse('A'.repeat(65));
+        throw new Error('Expected parse to reject oversized input');
+      } catch (error) {
+        expect(error).toMatchObject({
+          name: 'IbanError',
+          code: 'INPUT_TOO_LONG',
+        });
+      }
+    });
   });
 
   describe('format / normalize', () => {
@@ -65,6 +81,39 @@ describe('@fynqo/iban-nl', () => {
 
     it('formats in 4-char blocks', () => {
       expect(format(VALID)).toBe('NL91 ABNA 0417 1643 00');
+    });
+
+    it('allows bounded whitespace around an IBAN', () => {
+      expect(normalize(' '.repeat(46) + VALID)).toBe(VALID);
+    });
+
+    it('rejects non-string runtime input instead of coercing it', () => {
+      try {
+        normalize(null as unknown as string);
+        throw new Error('Expected normalize to reject non-string input');
+      } catch (error) {
+        expect(error).toMatchObject({
+          name: 'IbanError',
+          code: 'TYPE',
+        });
+      }
+    });
+
+    it.each([
+      ['normalize', normalize],
+      ['format', format],
+    ])('rejects oversized input in %s', (_name, operation) => {
+      let error: unknown;
+      try {
+        operation('A'.repeat(65));
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error).toMatchObject({
+        name: 'IbanError',
+        code: 'INPUT_TOO_LONG',
+      });
     });
   });
 
@@ -77,6 +126,14 @@ describe('@fynqo/iban-nl', () => {
       ['BUNQ', 'Bunq'],
     ])('resolves %s → %s', (code, name) => {
       expect(bankNameFor(code)).toBe(name);
+    });
+
+    it('rejects oversized bank codes before uppercasing', () => {
+      expect(bankNameFor('A'.repeat(5))).toBeNull();
+    });
+
+    it('rejects non-string runtime bank codes', () => {
+      expect(bankNameFor(null as unknown as string)).toBeNull();
     });
   });
 });
