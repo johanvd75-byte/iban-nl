@@ -34,6 +34,7 @@ concurrency:
 
 env:
   STRIX_ARCHIVE_SHA256: 7e8be841b9195a16e038eaa43e69452dc616fb19ca6979afbcaa9d842960e7e7
+  STRIX_IMAGE: ghcr.io/usestrix/strix-sandbox@sha256:478e0b37ec83b2ba8c6e159593cb46d5dc9b624a45d6a9bb606851b83058d284
   STRIX_LLM: ${{ vars.STRIX_LLM }}
   STRIX_VERSION: "1.1.0"
 
