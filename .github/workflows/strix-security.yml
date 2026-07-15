@@ -16,7 +16,7 @@ on:
           - standard
           - deep
       max_budget_usd:
-        description: LLM budget in USD; an in-flight request may finish above it
+        description: Internal model-value cap; the configured Mistral key uses Free mode
         required: true
         default: "3"
         type: choice
@@ -139,12 +139,19 @@ jobs:
           status=$?
           set -e
 
+          if grep -Eq 'reached the scan budget limit|Token budget .* exceeded' "$log_file"; then
+            status=3
+          fi
+
           case "$status" in
             0)
               echo "Strix completed without confirmed vulnerabilities."
               ;;
             2)
               echo "::error::Strix confirmed one or more vulnerabilities. Reproduce the scan locally to review protected details."
+              ;;
+            3)
+              echo "::error::Strix reached its internal model-value cap before completing; this result is inconclusive."
               ;;
             124|130|137)
               echo "::error::Strix reached its time limit. Reproduce the scan locally to review protected details."
