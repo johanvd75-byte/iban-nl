@@ -47,15 +47,16 @@ jobs:
         id: preflight
         shell: bash
         env:
+          ACTOR: ${{ github.actor }}
           CURRENT_REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
           STRIX_LLM_API_KEY: ${{ secrets.STRIX_LLM_API_KEY }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT_NAME" == "pull_request" && "$HEAD_REPO" != "$CURRENT_REPO" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && ( "$HEAD_REPO" != "$CURRENT_REPO" || "$ACTOR" == "dependabot[bot]" ) ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Strix is skipped for external forks because GitHub does not expose repository secrets."
+            echo "::notice::Strix is skipped for external forks and Dependabot because GitHub does not expose Actions secrets."
             exit 0
           fi
           if [[ -z "${STRIX_LLM:-}" || -z "$STRIX_LLM_API_KEY" ]]; then
@@ -125,11 +126,30 @@ jobs:
               ;;
           esac
 
+          log_file="$RUNNER_TEMP/strix.log"
+          set +e
           timeout --signal=INT --kill-after=30s "${timeout_minutes}m" \
             strix --non-interactive \
               --mount "$GITHUB_WORKSPACE" \
               --instruction-file "$GITHUB_WORKSPACE/security/strix-instructions.md" \
               --scan-mode "$mode" \
               --max-budget-usd "$budget" \
-              "${scope_args[@]}"
+              "${scope_args[@]}" >"$log_file" 2>&1
+          status=$?
+          set -e
 
+          case "$status" in
+            0)
+              echo "Strix completed without confirmed vulnerabilities."
+              ;;
+            2)
+              echo "::error::Strix confirmed one or more vulnerabilities. Reproduce the scan locally to review protected details."
+              ;;
+            124|130|137)
+              echo "::error::Strix reached its time limit. Reproduce the scan locally to review protected details."
+              ;;
+            *)
+              echo "::error::Strix failed with exit code $status. Reproduce the scan locally to diagnose it without publishing sensitive output."
+              ;;
+          esac
+          exit "$status"
