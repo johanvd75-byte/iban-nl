@@ -143,6 +143,16 @@ jobs:
             status=3
           fi
 
+          if (( status != 0 )) && grep -Eqi 'LLM CONNECTION FAILED|RateLimitError|provider_unavailable|MidStreamFallbackError|Tool .* not found in agent|upstream error from' "$log_file"; then
+            echo "::warning::The free AI provider is unavailable or out of quota; the Strix scan is deferred without marking the source as insecure."
+            {
+              echo "### Strix scan deferred"
+              echo
+              echo "The free AI provider could not complete this scan. No healthy security result is being claimed; deterministic security checks remain authoritative for this run."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           case "$status" in
             0)
               echo "Strix completed without confirmed vulnerabilities."
