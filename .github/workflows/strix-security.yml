@@ -16,7 +16,7 @@ on:
           - standard
           - deep
       max_budget_usd:
-        description: Internal model-value cap; the configured Mistral key uses Free mode
+        description: Internal model-value cap; the configured OpenRouter model is free
         required: true
         default: "3"
         type: choice
