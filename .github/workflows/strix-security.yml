@@ -16,7 +16,7 @@ on:
           - standard
           - deep
       max_budget_usd:
-        description: Internal model-value cap; GitHub Models uses the free Actions tier
+        description: Internal model-value cap; the configured OpenRouter model is free
         required: true
         default: "3"
         type: choice
@@ -27,7 +27,6 @@ on:
 
 permissions:
   contents: read
-  models: read
 
 concurrency:
   group: strix-${{ github.workflow }}-${{ github.ref }}
@@ -36,9 +35,7 @@ concurrency:
 env:
   STRIX_ARCHIVE_SHA256: 7e8be841b9195a16e038eaa43e69452dc616fb19ca6979afbcaa9d842960e7e7
   STRIX_IMAGE: ghcr.io/usestrix/strix-sandbox@sha256:478e0b37ec83b2ba8c6e159593cb46d5dc9b624a45d6a9bb606851b83058d284
-  # The first "openai/" selects LiteLLM's OpenAI-compatible provider; the
-  # second is part of GitHub Models' model identifier.
-  STRIX_LLM: openai/openai/gpt-4.1
+  STRIX_LLM: ${{ vars.STRIX_LLM }}
   STRIX_VERSION: "1.1.0"
 
 jobs:
@@ -55,12 +52,17 @@ jobs:
           CURRENT_REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          STRIX_LLM_API_KEY: ${{ secrets.STRIX_LLM_API_KEY }}
         run: |
           set -euo pipefail
           if [[ "$EVENT_NAME" == "pull_request" && ( "$HEAD_REPO" != "$CURRENT_REPO" || "$ACTOR" == "dependabot[bot]" ) ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Strix is skipped for external forks and Dependabot because GitHub does not expose Actions secrets."
             exit 0
+          fi
+          if [[ -z "${STRIX_LLM:-}" || -z "$STRIX_LLM_API_KEY" ]]; then
+            echo "::error::Configure the STRIX_LLM variable and STRIX_LLM_API_KEY repository secret."
+            exit 1
           fi
           echo "enabled=true" >> "$GITHUB_OUTPUT"
 
@@ -90,8 +92,7 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
           EVENT_NAME: ${{ github.event_name }}
-          LLM_API_BASE: https://models.github.ai/inference
-          LLM_API_KEY: ${{ github.token }}
+          LLM_API_KEY: ${{ secrets.STRIX_LLM_API_KEY }}
           MANUAL_BUDGET: ${{ inputs.max_budget_usd }}
           MANUAL_MODE: ${{ inputs.scan_mode }}
         run: |
